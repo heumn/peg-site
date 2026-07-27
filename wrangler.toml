@@ -1,0 +1,6 @@
+# Peg's site at peg.abello.no — a Worker serving static assets.
+# Deploy: npx wrangler deploy   (custom_domain auto-creates the DNS record)
+name = "peg-site-web"
+compatibility_date = "2026-07-01"
+assets = { directory = "." }
+routes = [{ pattern = "peg.abello.no", custom_domain = true }]
