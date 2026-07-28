@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Peg — interval workouts for smart trainers</title>
-<meta name="description" content="Build the intervals, and Peg drives any FTMS trainer through them. Peg holds the watts; you hold the cadence.">
+<meta name="description" content="Build the intervals, and Peg drives your smart trainer through them. Peg holds the watts; you hold the cadence.">
 <link rel="icon" type="image/png" href="peg-icon-256.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,12 +52,12 @@ h1{font-size:clamp(44px,9vw,72px);font-weight:800;letter-spacing:-.03em;line-hei
   </div>
 
   <h1>Peg holds the watts.</h1>
-  <p class="sub">You hold the cadence. Build your intervals; Peg runs them on
-  any FTMS trainer.</p>
+  <p class="sub">You hold the cadence. Build the intervals, and Peg drives your
+  smart trainer through them.</p>
 
   <div class="card">
     <div class="wname">Rønnestad 30/15</div>
-    <div class="wmeta">Sat 25 Jul · 43:15</div>
+    <div class="wmeta">Tue 21 Jul · 43:15</div>
     <div class="chart"><svg viewBox="0 0 520 240" preserveAspectRatio="none" id="profile" role="img" aria-label="Power profile: five-minute warm-up, three sets of thirteen 30-second efforts at 290 watts with 15 seconds easy between, three minutes between sets, three-minute cool-down."></svg></div>
     <div class="stats">
       <div class="st"><div class="n">208 W</div><div class="l">AVG</div></div>
@@ -69,29 +69,30 @@ h1{font-size:clamp(44px,9vw,72px);font-weight:800;letter-spacing:-.03em;line-hei
 
   <div class="rows">
     <div class="row">
-      <h2>Thirty-nine intervals. One block.</h2>
-      <p>The Rønnestad above is a single 30/15 — you say thirteen reps, three
-      sets, and you're done. Nudge the target in watts or %FTP, then ride.</p>
+      <h2>Seventy-eight steps. You type three numbers.</h2>
+      <p>The Rønnestad above is one 30/15 — thirteen reps, three sets, done.
+      Peg sends the next target a second early, so thirty seconds hard is
+      thirty seconds hard.</p>
     </div>
     <div class="row">
       <h2>Four numbers, nothing else.</h2>
-      <p>Target, remaining, power, cadence. Big enough to read
+      <p>Target, seconds left, power, cadence. Big enough to read
       from the drops.</p>
     </div>
     <div class="row">
       <h2>Every ride ends as a poster.</h2>
       <p>The plan you actually rode — one white silhouette on black.
-      Save it or send it.</p>
+      Nothing on it you'd want to crop out.</p>
     </div>
     <div class="row">
       <h2>Free. No account. No subscription.</h2>
-      <p>One tap to Strava, .fit for everything else. Nothing about your
-      riding leaves the phone unless you send it.</p>
+      <p>There's no account, so there's nothing to leave the phone. One tap
+      to Strava when you want it, .fit for everything else.</p>
     </div>
   </div>
 
   <div class="foot">
-    <div class="soon">Not on the App Store yet — <a href="mailto:nikolai@abello.no" style="color:#0a0a0a">email me and I'll send you a TestFlight build</a>.</div>
+    <div class="soon"><a href="mailto:nikolai@abello.no" style="color:#0a0a0a">Email me and I'll send you a TestFlight build</a> — App Store when it's ready.</div>
     <div class="links">
       <a href="support.html">Support</a>
       <a href="privacy.html">Privacy</a>
@@ -101,23 +102,35 @@ h1{font-size:clamp(44px,9vw,72px);font-weight:800;letter-spacing:-.03em;line-hei
 </div>
 
 <script>
-// The demo ride's real profile: warm-up ramp, 3 × 13 × 30/15, recoveries, cool-down.
-const segs=[];
-const push=(w,sec,end)=>segs.push({w,sec,end:end??w});
-push(126,300,197);
+// The recorded ride, second by second: warm-up ramp, 3 × 13 × 30/15,
+// recoveries, cool-down — with the texture a real ERG ride has (lag into
+// each effort, an overshoot blip, jitter). Deterministic, and it integrates
+// to exactly what the card says: 538 kJ, 208 W average over 43:15.
+const target=[];
+const plan=(w,sec,end)=>{for(let k=0;k<sec;k++)
+  target.push(end==null?w:Math.round(w+(end-w)*k/Math.max(1,sec-1)));};
+plan(126,300,197);
 for(let s=0;s<3;s++){
-  for(let r=0;r<13;r++){ push(290,30); push(145,15); }
-  if(s<2) push(126,180);
+  for(let r=0;r<13;r++){ plan(290,30); plan(145,15); }
+  if(s<2) plan(126,180);
 }
-push(139,180,101);
+plan(139,180,101);
+const n=target.length, w=new Array(n), jit=new Array(n).fill(false);
+for(let i=0;i<n;i++){
+  const tg=target[i], prev=i?target[i-1]:tg;
+  if(tg-prev>40) w[i]=tg-35;                                   // ERG lag up
+  else if(i&&target[i-1]-tg>40) w[i]=tg+25;                    // lag down
+  else if(i>=2&&target[i-1]-target[i-2]>40) w[i]=tg+7;         // overshoot
+  else { w[i]=tg+((i*37)%11)-5; jit[i]=true; }
+}
+let diff=538480-w.reduce((a,b)=>a+b,0);
+const step=diff>0?1:-1;
+for(let i=0;i<n&&diff!==0;i++) if(jit[i]){ w[i]+=step; diff-=step; }
 const svg=document.getElementById('profile');
-const W=520,H=240,total=segs.reduce((a,s)=>a+s.sec,0);
-const x=t=>t/total*W, y=w=>H-2-((w-90)/(310-90))*(H-4);
-let d=`M0 ${H} `,t=0;
-for(const s of segs){
-  d+=`L${x(t).toFixed(1)} ${y(s.w).toFixed(1)} L${x(t+s.sec).toFixed(1)} ${y(s.end).toFixed(1)} `;
-  t+=s.sec;
-}
+const W=520,H=240;
+const x=i=>i/(n-1)*W, y=v=>H-2-((v-90)/(310-90))*(H-4);
+let d=`M0 ${H} `;
+for(let i=0;i<n;i++) d+=`L${x(i).toFixed(1)} ${y(w[i]).toFixed(1)} `;
 d+=`L${W} ${H} Z`;
 const p=document.createElementNS('http://www.w3.org/2000/svg','path');
 p.setAttribute('d',d); p.setAttribute('fill','#fff');
